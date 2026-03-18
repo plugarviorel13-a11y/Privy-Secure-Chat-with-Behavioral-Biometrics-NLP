@@ -1,0 +1,103 @@
+================================================================================
+                           MANUAL DE UTILIZARE - PRIVY v1.0
+                          Securitate Dincolo de Parolă
+================================================================================
+
+1. DESCRIERE GENERALĂ
+--------------------------------------------------------------------------------
+Privy este o aplicație de mesagerie securizată "End-to-End" (simulat) care pune
+accent pe confidențialitate și securitate comportamentală. Spre deosebire de
+aplicațiile clasice, Privy utilizează Inteligența Artificială pentru a verifica
+identitatea utilizatorului în mod continuu, analizând ritmul de tastare
+(Keystroke Dynamics) și conținutul mesajelor (Phishing Detection).
+
+Caracteristici Cheie:
+- Criptare a mesajelor în baza de date.
+- Listă de contacte privată (Private Agenda).
+- Autentificare biometrică continuă (bazată pe viteza de tastare).
+- Asistent AI pentru detectarea tentativelor de phishing.
+
+================================================================================
+
+2. INSTALARE ȘI PORNIRE
+--------------------------------------------------------------------------------
+Pentru a rula aplicația local, urmați acești pași:
+
+1. Asigurați-vă că serverul MySQL este pornit.
+2. Deschideți terminalul în folderul proiectului.
+3. Porniți serverul aplicației:
+   $ sudo python3 run.py
+
+4. Deschideți browserul web și accesați adresa:
+   http://127.0.0.1:5000
+
+   NOTA: Este crucial să folosiți "127.0.0.1" și nu "localhost" pentru ca
+   sistemele de securitate (token-uri) să funcționeze corect.
+
+================================================================================
+
+3. GHID DE UTILIZARE PAS CU PAS
+--------------------------------------------------------------------------------
+
+A. ÎNREGISTRARE ȘI AUTENTIFICARE (LOGIN)
+   1. Pe ecranul principal, apăsați pe link-ul "Register here".
+   2. Introduceți un Username și o Parolă.
+   3. După crearea contului, veți fi redirecționat la Login.
+   4. Introduceți datele pentru a intra în Dashboard.
+
+B. GESTIONAREA CONTACTELOR (PRIVATE AGENDA)
+   Privy folosește un sistem "Zero-Knowledge" pentru contacte. Nu există o listă
+   publică de utilizatori.
+   
+   1. Pentru a adăuga un prieten, trebuie să îi cunoașteți EXACT numele de
+      utilizator (Username).
+   2. În panoul din stânga ("Contacts"), introduceți numele în căsuță.
+   3. Apăsați butonul "+".
+   4. Dacă utilizatorul există, va apărea în lista de sub căsuță.
+   5. Click pe numele prietenului din listă pentru a-l seta ca destinatar.
+
+C. TRIMITEREA MESAJELOR ȘI SECURITATEA BIOMETRICĂ
+   1. Asigurați-vă că ați selectat un destinatar (câmpul "To").
+   2. Scrieți mesajul în zona de text.
+   
+   !!! ATENȚIE - ANALIZA BIOMETRICĂ !!!
+   Sistemul monitorizează în timp real viteza de tastare.
+   - Dacă scrieți într-un ritm uman, natural, mesajul se va trimite sigur.
+   - Dacă folosiți Copy-Paste, scripturi automate (viteză inumană < 70ms)
+     sau "vânați" tastele suspect de lent (> 1200ms), sistemul va declanșa o alarmă.
+   
+   ALERTĂ DE SECURITATE:
+   O cutie roșie va apărea sub butonul de trimitere:
+   "SECURITY ALERT: Unusual typing pattern detected!"
+
+D. CITIREA MESAJELOR (INBOX)
+   1. În panoul din dreapta ("My Inbox"), apăsați butonul "Refresh".
+   2. Mesajele noi vor apărea decriptate în listă.
+
+E. DETECTAREA PHISHING-ULUI (AI SECURITY)
+   Fiecare mesaj primit are un buton "Check AI".
+   1. Dacă primiți un mesaj suspect (ex: "Click aici pentru a câștiga premii"),
+      apăsați "Check AI".
+   2. Sistemul va analiza textul și va afișa:
+      - VERDE: "Safe message" (Mesaj sigur).
+      - ROȘU: "WARNING: Phishing detected" (Tentativă de fraudă).
+
+================================================================================
+
+4. ÎNTREBĂRI FRECVENTE ȘI TROUBLESHOOTING
+--------------------------------------------------------------------------------
+
+Q: Primesc eroarea "Unauthorized" când adaug un prieten.
+A: Asigurați-vă că accesați site-ul pe http://127.0.0.1:5000. Dă Logout și
+   Login din nou pentru a reîmprospăta Token-ul de securitate.
+
+Q: De ce primesc alerta biometrică deși scriu manual?
+A: Sistemul este calibrat pentru un flux continuu. Dacă faceți pauze foarte lungi
+   între litere sau scrieți extrem de repede (ca un robot), sistemul marchează
+   comportamentul ca "anomalie" pentru a preveni furtul de cont.
+
+Q: Cum șterg un utilizator?
+A: Utilizatorii se pot șterge doar de către administrator prin scriptul dedicat
+   "reset_users.py" (atenție, acest lucru șterge toată baza de date).
+
+================================================================================

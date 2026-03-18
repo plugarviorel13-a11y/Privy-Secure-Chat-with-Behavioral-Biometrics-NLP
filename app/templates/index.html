@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Messenger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    
+    <div class="container">
+        <h1>Privy</h1>
+
+        <div id="authContainer" class="auth-wrapper">
+            
+            <div id="loginForm" class="card auth-card">
+                <h2>Welcome Back</h2>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUser" placeholder="Your username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPass" placeholder="••••••">
+                </div>
+                <button onclick="doLogin()">Login</button>
+                <p class="switch-link">No account? <a href="#" onclick="showRegister()">Register here</a></p>
+                <p id="loginStatus" class="status"></p>
+            </div>
+
+            <div id="registerForm" class="card auth-card hidden">
+                <h2>Create Account</h2>
+                <div class="form-group">
+                    <label>Choose Username</label>
+                    <input type="text" id="regUser" placeholder="Ex: Alice">
+                </div>
+                <div class="form-group">
+                    <label>Choose Password</label>
+                    <input type="password" id="regPass" placeholder="••••••">
+                </div>
+                <button onclick="doRegister()" class="btn-secondary">Register</button>
+                <p class="switch-link">Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
+                <p id="regStatus" class="status"></p>
+            </div>
+        </div>
+
+        <div id="dashboardScreen" class="dashboard hidden">
+            <div class="header-bar">
+                <h3>Logged in as: <span id="currentUserDisplay" class="highlight"></span></h3>
+                <button onclick="logout()" class="btn-small">Logout</button>
+            </div>
+
+            <div class="main-content">
+
+                <div class="card sidebar-card">
+                    <h3>Contacts</h3>
+                    <div class="add-contact-box">
+                        <input type="text" id="newContactInput" placeholder="Username...">
+                        <button onclick="addContact()" class="btn-add">+</button>
+                    </div>
+                    <div id="contactsList" class="contacts-list">
+                        <p class="placeholder-text">Loading...</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Send New Message</h3>
+                    <div class="form-group">
+                        <label>To (Receiver):</label>
+                        <input type="text" id="receiverInput" placeholder="Ex: Bob">
+                    </div>
+                    <div class="form-group">
+                        <label>Message:</label>
+                        <textarea id="messageInput" placeholder="Type your secret message here..."></textarea>
+                    </div>
+                    <button onclick="sendMessage()">Send Message</button>
+                    
+                    <div id="bioAlert" class="bio-warning hidden">
+                        ⚠️ <strong>SECURITY ALERT:</strong> Unusual typing pattern detected!
+                        <br><span style="font-size:0.8em">Are you really who you say you are?</span>
+                    </div>
+
+                    <p id="statusMsg" class="status"></p>
+                </div>
+
+                <div class="card">
+                    <div class="inbox-header">
+                        <h3>My Inbox</h3>
+                        <button onclick="loadInbox()" class="btn-secondary">Refresh</button>
+                    </div>
+                    <div id="inboxList" class="messages-list">
+                        <p class="placeholder-text">Click Refresh to load messages.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bioAlert" class="bio-warning hidden">
+    ⚠️ <strong>SECURITY ALERT:</strong> Unusual typing pattern detected!
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:5000";
+        let currentUser = null;
+
+        // Differential privacy keystroke data
+        let messageKeystrokes = [];
+        let lastKeyTime = Date.now();
+
+        
+        // --- KEYSTROKES LISTENER  ---
+        const msgInput = document.getElementById('messageInput');
+        if (msgInput) {
+            msgInput.addEventListener('keydown', (e) => {
+                const currentTime = Date.now();
+                const dwell = currentTime - lastKeyTime; 
+                
+                // Update last key time
+                lastKeyTime = currentTime; 
+
+                
+                if (dwell > 2000) {
+                    return; 
+                }
+
+                // Memorizing the las 50 keystrokes
+                if (messageKeystrokes.length > 50) messageKeystrokes.shift();
+                messageKeystrokes.push(dwell);
+            });
+        }
+
+        // --- Navigation ---
+        function showRegister() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+        function showLogin() {
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+        }
+        function logout() { 
+            localStorage.removeItem('active_user_id'); 
+            location.reload(); 
+        }
+
+        // --- REGISTER ---
+        async function doRegister() {
+            const user = document.getElementById('regUser').value.trim();
+            const pass = document.getElementById('regPass').value.trim();
+            const status = document.getElementById('regStatus');
+            if(!user || !pass) { alert("Fields required!"); return; }
+            status.innerText = "Creating...";
+
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass, public_key: "demo", kdf_salt: "demo" })
+                });
+                if (response.status === 201) {
+                    status.innerText = "Done! Login now.";
+                    setTimeout(showLogin, 1500);
+                } else { status.innerText = "Error."; }
+            } catch (e) { console.error(e); }
+        }
+
+        // --- LOGIN ---
+        async function doLogin() {
+            const user = document.getElementById('loginUser').value.trim();
+            const pass = document.getElementById('loginPass').value.trim();
+            const status = document.getElementById('loginStatus');
+
+            if(!user || !pass) { alert("Credentials required!"); return; }
+            status.innerText = "Verifying...";
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json(); 
+
+                if (response.status === 200) {
+                    localStorage.setItem('active_user_id', data.user_id);
+                    
+                    currentUser = user;
+                    document.getElementById('authContainer').classList.add('hidden');
+                    document.getElementById('dashboardScreen').classList.remove('hidden');
+                    document.getElementById('currentUserDisplay').innerText = currentUser;
+                    
+                    loadInbox(); 
+                    loadContacts(); 
+                } else {
+                    status.innerText = "Invalid credentials.";
+                }
+            } catch (e) { status.innerText = "Network error"; }
+        }
+
+        // --- ADD CONTACT  ---
+        async function addContact() {
+            const contactInput = document.getElementById('newContactInput');
+            const username = contactInput.value.trim();
+            
+            if (!username) { alert("Te rog scrie un nume!"); return; }
+
+            const myToken = localStorage.getItem('active_user_id');
+            if (!myToken) { alert("Eroare: Nu ești logat (Token lipsă)."); return; }
+
+            try {
+                const response = await fetch(`${API_URL}/add_friend`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-User-ID': myToken 
+                    },
+                    body: JSON.stringify({ username: username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert("Succes: " + data.message);
+                    contactInput.value = "";
+                    loadContacts(); 
+                } else {
+                    alert("Eroare Server: " + (data.error || "Necunoscută"));
+                }
+            } catch (e) { 
+                console.error(e);
+                alert("Eroare Tehnică: " + e.message); 
+            }
+        }
+
+        // --- LOAD CONTACTS  ---
+        async function loadContacts() {
+            const list = document.getElementById('contactsList');
+            const myToken = localStorage.getItem('active_user_id'); 
+
+            if (!list) return; 
+
+            try {
+                const response = await fetch(`${API_URL}/get_friends`, {
+                    headers: { 'X-User-ID': myToken } 
+                });
+                const data = await response.json();
+                list.innerHTML = "";
+
+                if (data.friends && data.friends.length > 0) {
+                    data.friends.forEach(f => {
+                        const div = document.createElement('div');
+                        div.className = 'contact-item';
+                        div.innerHTML = `<span class="contact-name">${f}</span> <span>💬</span>`;
+                        div.onclick = () => { 
+                            document.getElementById('receiverInput').value = f; 
+                        };
+                        list.appendChild(div);
+                    });
+                } else { list.innerHTML = '<p class="placeholder-text">No contacts.</p>'; }
+            } catch (e) { 
+                console.error(e);
+                list.innerHTML = "Error loading contacts."; 
+            }
+        }
+
+        // --- SEND MESSAGE ---
+        async function sendMessage() {
+            const receiver = document.getElementById('receiverInput').value;
+            const message = document.getElementById('messageInput').value;
+            const alertBox = document.getElementById('bioAlert');
+
+            if (!receiver || !message) return;
+
+            // Ascundem alerta inainte de trimitere
+            if(alertBox) alertBox.classList.add('hidden');
+
+            try {
+                const response = await fetch(`${API_URL}/send_message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender_username: currentUser,
+                        receiver_username: receiver,
+                        encrypted_content: btoa(message),
+                        encrypted_aes_key: "demo",
+                        iv: "demo",
+                        keystrokes: messageKeystrokes 
+                    })
+                });
+                
+                const data = await response.json();
+
+                if(response.ok) {
+                    
+                    if (data.biometric_warning === true && alertBox) {
+                        alertBox.classList.remove('hidden'); 
+                    } else {
+                        alert("Message sent securely!");
+                    }
+
+                    document.getElementById('messageInput').value = "";
+                    messageKeystrokes = []; 
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch(e) { alert("Error sending"); }
+        }
+
+        // --- INBOX ---
+        async function loadInbox() {
+            const list = document.getElementById('inboxList');
+            try {
+                const res = await fetch(`${API_URL}/get_messages/${currentUser}`);
+                if(res.ok) {
+                    const msgs = await res.json();
+                    list.innerHTML = "";
+                    msgs.forEach(m => {
+                        const safeContent = atob(m.content).replace(/'/g, "\\'");
+                        const uniqueId = `ai-${m.id}`;
+                        list.innerHTML += `
+                        <div class='msg-item'>
+                            <b>${m.sender}</b>: ${atob(m.content)}
+                            <br><button onclick="checkPhishing('${safeContent}', '${uniqueId}')" style="font-size:0.8em; margin-top:5px;">Check AI</button> 
+                            <span id="${uniqueId}"></span>
+                        </div>`;
+                    });
+                }
+            } catch(e) {}
+        }
+
+        // --- PHISHING CHECK ---
+        async function checkPhishing(text, id) {
+            const span = document.getElementById(id);
+            span.innerText = " Checking...";
+            const res = await fetch(`${API_URL}/analyze_phishing`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message_text: text})
+            });
+            const d = await res.json();
+            span.innerText = " " + d.analysis;
+            span.style.color = d.analysis.includes("WARNING") ? "red" : "green";
+        }
+    </script>
+</body>
+</html>

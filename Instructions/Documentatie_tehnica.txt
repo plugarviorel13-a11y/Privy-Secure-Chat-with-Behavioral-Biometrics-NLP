@@ -1,0 +1,152 @@
+================================================================================
+DOCUMENTATIE TEHNICA - PRIVY
+================================================================================
+
+B. Explicitarile culese de la potentiali clienti (Cerinte Functionale)
+--------------------------------------------------------------------------------
+
+In urma analizei nevoilor utilizatorilor din mediul corporativ si a persoanelor 
+preocupate de securitatea datelor, au fost identificate urmatoarele 5 cerinte 
+esentiale (Requirements) care au stat la baza dezvoltarii aplicatiei Privy:
+
+1. REQ-01: Confidentialitate absoluta a listei de contacte (Anti-Stalking).
+   - Solicitare: Utilizatorii doresc sa nu apara in liste publice de cautare 
+     ("Search Users") pentru a evita spam-ul sau hartuirea.
+   - Solutie propusa: Implementarea unui sistem "Zero-Knowledge Contact List", 
+     unde adaugarea unui contact se poate face doar cunoscand exact numele de 
+     utilizator al acestuia.
+
+2. REQ-02: Securitate continua, nu doar la autentificare (Continuous Authentication).
+   - Solicitare: Clientii se tem de scenariul in care un atacator afla parola 
+     sau gaseste un calculator deblocat.
+   - Solutie propusa: Implementarea unui modul de Biometrie Comportamentala care 
+     analizeaza ritmul de tastare (keystroke dynamics) la fiecare mesaj trimis, 
+     alertand daca stilul de tastare difera de cel al proprietarului sau este 
+     inuman (bot).
+
+3. REQ-03: Asistenta activa impotriva ingineriei sociale (Anti-Phishing).
+   - Solicitare: Utilizatorii non-tehnici cad adesea victime mesajelor care 
+     promit premii sau cer date urgente.
+   - Solutie propusa: Integrarea unui modul de Inteligenta Artificiala (NLP) care 
+     permite utilizatorului sa verifice "la cerere" continutul unui mesaj suspect 
+     pentru a detecta intentii malitioase.
+
+4. REQ-04: Portabilitate si accesibilitate fara instalare.
+   - Solicitare: Posibilitatea de a comunica securizat de pe orice statie de 
+     lucru fara a fi nevoie de drepturi de administrator pentru instalarea unui 
+     software dedicat.
+   - Solutie propusa: Arhitectura Web-Based (Client-Server) accesibila direct 
+     din browser.
+
+5. REQ-05: Validarea identitatii expeditorului prin Token, nu doar Cookie.
+   - Solicitare: Prevenirea atacurilor de tip CSRF sau Session Hijacking unde 
+     browserul trimite automat cookie-uri.
+   - Solutie propusa: Implementarea unui sistem hibrid de autentificare care 
+     dubleaza sesiunea cu un Token stocat local (X-User-ID), verificat la fiecare 
+     cerere critica (API calls).
+
+
+C. Dezvoltarea proiectului
+--------------------------------------------------------------------------------
+
+1. Software Architecture (Arhitectura Sistemului)
+   Proiectul urmeaza o arhitectura de tip Client-Server bazata pe stilul 
+   arhitectural REST API, separand logica de prezentare (Frontend) de logica 
+   de business (Backend).
+
+   - Frontend (Client): Realizat folosind HTML5, CSS3 si JavaScript (Vanilla). 
+     Acesta ruleaza in browserul utilizatorului si gestioneaza captarea 
+     evenimentelor biometrice (tastare), criptarea preliminara si comunicarea 
+     asincrona cu serverul.
+   
+   - Backend (Server): Construit pe Python cu framework-ul Flask. Acesta expune 
+     endpoint-uri REST (/login, /send_message, /analyze_phishing) si 
+     orchestreaza logica de securitate.
+   
+   - Database (Persistenta): MySQL, utilizand o structura relationala pentru a 
+     lega utilizatorii, mesajele si relatiile de prietenie.
+
+   Diagrama Conceptuala:
+   [Client Browser (JS + DOM)] <--(JSON/HTTP)--> [Flask Server] <--(SQL)--> [MySQL Database]
+
+
+2. Organizarea codului (Structura si Modularitate)
+   Codul a fost structurat pentru a asigura claritate ("Clean Code") si 
+   mentenanta usoara:
+
+   - run.py: Punctul de intrare (Entry Point) al aplicatiei. Initializeaza 
+     serverul web.
+   
+   - app/ (Package Principal):
+     * __init__.py: Constructorul aplicatiei (Factory Pattern). Aici se 
+       configureaza CORS, setarile de securitate (Cookie) si cheia secreta.
+     * routes.py: Controller-ul principal. Contine toate functiile (def) care 
+       raspund la cererile HTTP. Fiecare functie are o responsabilitate unica 
+       (ex: login(), add_friend()).
+     * db.py: Modulul de conexiune la baza de date (Singleton connection), 
+       separand logica SQL de rute.
+     * ai_security/:
+       - phishing.py: Modul dedicat logicii de AI, encapsuland clasa 
+         PhishingDetector.
+   
+   - app/static/:
+     * script.js: Gestioneaza logica clientului (Fetch API, manipulare DOM, 
+       ascultatori de evenimente keydown).
+     * style.css: Defineste interfata grafica (Responsive Design, Dark Mode).
+
+
+3. Identificarea si urmarirea modulelor
+   Corelarea dintre arhitectura si fisierele sursa:
+
+   | Modul Functional   | Componenta Backend (routes.py) | Componenta Frontend (script.js) | Descriere                                |
+   |:-------------------|:-------------------------------|:--------------------------------|:-----------------------------------------|
+   | Auth Module        | login(), register()            | doLogin(), doRegister()         | Gestioneaza accesul si token-urile.      |
+   | Messaging Core     | send_message(), get_messages() | sendMessage(), loadInbox()      | Criptare, stocare si recuperare mesaje.  |
+   | Contact Manager    | add_friend(), get_friends()    | addContact(), loadContacts()    | Gestioneaza lista privata de prieteni.   |
+   | Biometric Security | send_message() (logica int.)   | keydown listener                | Calculeaza viteza de tastare.            |
+   | AI Phishing        | analyze_phishing()             | checkPhishing()                 | Analizeaza textul la cerere.             |
+
+
+D. Verificare si validare
+--------------------------------------------------------------------------------
+
+1. Manualul de Utilizare
+   (Vezi Anexa: Manual de Utilizare, care acopera pasii de inregistrare, chat 
+   si interpretarea alertelor de securitate.)
+
+2. Trasabilitatea implementarii (Matricea de Validare REQ vs Implementare)
+   Mai jos este demonstrat cum fiecare cerinta definita la punctul B a fost 
+   implementata si verificata in produsul final:
+
+   Validare REQ-01 (Confidentialitate Contacte):
+   - Implementare: In routes.py, functia add_friend nu ofera sugestii. 
+     Interogarea SQL returneaza rezultat doar la potrivire exacta.
+   - Verificare: Incercarea de a adauga un utilizator partial (ex: "Bo" in loc 
+     de "Bob") returneaza eroare "User not found". Lista de prieteni este 
+     vizibila doar dupa adaugare explicita.
+
+   Validare REQ-02 (Biometrie Comportamentala):
+   - Implementare: In script.js, evenimentul keydown masoara timpul (dwell) 
+     dintre taste. Aceste date sunt trimise la server. Python calculeaza media 
+     si ridica flag-ul biometric_warning.
+   - Verificare:
+     1. Tastare normala -> Nicio alerta.
+     2. Tastare rapida (simulare Copy-Paste, <70ms) -> Apare alerta rosie.
+     3. Tastare extrem de lenta (>1200ms) -> Apare alerta rosie.
+
+   Validare REQ-03 (Anti-Phishing):
+   - Implementare: Modulul ai_security/phishing.py foloseste logica euristica 
+     pentru a scana cuvinte cheie.
+   - Verificare: Trimiterea unui mesaj "Click here to win a prize" si apasarea 
+     butonului "Check AI" returneaza textul rosu "WARNING: Phishing detected".
+
+   Validare REQ-04 (Web-Based):
+   - Implementare: Utilizarea Flask pentru servirea HTML/JS.
+   - Verificare: Accesarea http://127.0.0.1:5000 din orice browser modern 
+     incarca interfata functional fara instalare.
+
+   Validare REQ-05 (Token Security):
+   - Implementare: Functia get_current_user_id() din Python verifica header-ul 
+     X-User-ID.
+   - Verificare: Daca se sterge manual localStorage din browser, cererile 
+     ulterioare esueaza cu "Unauthorized", demonstrand protectia.
